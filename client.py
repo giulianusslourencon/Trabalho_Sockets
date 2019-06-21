@@ -1,11 +1,11 @@
 import socket
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.connect((socket.gethostname(), 9999))
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((socket.gethostname(), 9999))
 
-full_msg = ''
+full_msg = ""
 while True:
-    msg = server.recv(8)
+    msg = s.recv(8)
     if len(msg) <= 0:
         break
     full_msg += msg.decode("utf-8")
