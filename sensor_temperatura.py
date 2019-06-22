@@ -1,5 +1,5 @@
 """ Trabalho de redes 2019 - ICMC
-    Codigo que faz o sensor d.....................
+    Codigo que faz o sensor de temperatura
 
     Alexandre Norcia Medeiros - 10295583
     Gabriel Alfonso Nascimento Salgueiro - 10284368
@@ -12,6 +12,8 @@ import socket
 import select
 import errno
 from enum import Enum
+import time
+import random
 
 # Definicao dos tipos de mensagem
 class Tipo_Mensagem(Enum):
@@ -92,36 +94,10 @@ while True:
         break
 
 while True:
-    mensagem = input("Temperatura lida (digite): ") # temperatura
+    time.sleep(1)
+    mensagem = random.randint(10, 40) # temperatura
     
     if mensagem:
-        mensagem = mensagem.encode("utf-8") # codifica para utf-8
+        mensagem = (f"Temperatura atual: {mensagem}ºC").encode("utf-8") # codifica para utf-8
         mensagem_header = f"{ID:<2}0 1{len(mensagem):<{TAMANHO_CABECALHO-5}}".encode("utf-8")
         client_socket.send(mensagem_header + mensagem)
-
-    """
-    try:
-        # recebe temperatura do ambiente
-        while True:
-            username_header = client_socket.recv(TAMANHO_CABECALHO)
-            if not len(username_header):
-                print("Conexao encerrada pelo servidor")
-                sys.exit()
-            username_length = int(username_header.decode("utf-8").strip())
-            username = client_socket.recv(username_length).decode("utf-8")
-
-            mensagem_header = client_socket.recv(TAMANHO_CABECALHO)
-            mensagem_length = int(mensagem_header.decode("utf-8").strip())
-            mensagem = client_socket.recv(mensagem_length).decode("utf-8")
-
-            print(f"{username} > {mensagem}")
-
-    except IOError as e:
-        if e.errno != errno.EAGAIN and e.errno != errno.EWOULDBLOCK:
-            print('Erro de leitura', str(e))
-        continue
-
-    except Exception as e:
-        print('Erro', str(e))
-        sys.exit()
-    """
