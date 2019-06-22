@@ -10,6 +10,7 @@
 import socket
 import select
 from enum import Enum
+from _thread import *
 
 
 # Definicao dos tipos de mensagem
@@ -74,6 +75,21 @@ def recebe_mensagem(socket_cliente):
         return False
 
 
+
+def thread_sensor(socket_sensor):
+    while True:
+        mensagem = recebe_mensagem(socket_sensor)
+        if mensagem is False:
+            break
+        componente_sensor = componentes[socket_sensor]
+        print(f"Mensagem recebida de {Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8')))} ({componente_sensor['ID_E'].strip()}): {mensagem['Tipo']}\ndados recebidos: {mensagem['Dados'].decode('utf-8')} ")
+    
+    print(f"Conexao encerrada de {Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8')))}:{componente_sensor['ID_E'].strip()}")
+    sockets_conectados.remove(socket_sensor)
+    del componentes[socket_sensor]
+    socket_sensor.close()
+
+
 ########## CODIGO PRINCIPAL ##########
 
 
@@ -116,7 +132,10 @@ while True:
             ultimo_ID += 1
             socket_cliente.send(f"0 {ultimo_ID:<2}00  ".encode('utf-8'))
             componentes[socket_cliente]['ID_E'] = f"{ultimo_ID:<2}"
+
+            start_new_thread(thread_sensor, (socket_cliente,))
         # intera sobre os sockets que nao sao o servidor (novas mensagens dos clientes)
+        '''
         else:
             mensagem = recebe_mensagem(socket_modificado)
             if mensagem is False: # mensagem vazia ou com erro
@@ -132,7 +151,7 @@ while True:
             #####
             #     TRATAMENTO DE MENSAGENS VEM AQUI
             #####
-
+        '''
     # trata clientes com erro de execucao removendo sua coneccao   
     for socket_modificado in sockets_excecao:
         sockets_conectados.remove(socket_modificado)
