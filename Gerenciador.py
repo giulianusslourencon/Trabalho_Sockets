@@ -41,11 +41,11 @@ class Tipo_Componente(Enum):
 ########## CONSTANTES ##########
 
 
-TAMANHO_CABECALHO = 6   # O cabecalho da mensagem sera do tipo:
-                        # byte 0 -> ID do emissor
-                        # byte 1 -> ID do receptor
-                        # byte 2 -> Tipo da mensagem
-                        # bytes 3, 4 e 5 -> Tamanho da mensagem, ocupando 3 caracteres (de 0 ate 999)
+TAMANHO_CABECALHO = 8   # O cabecalho da mensagem sera do tipo:
+                        # bytes 0 e 1 -> ID do emissor
+                        # byte 2 e 3 -> ID do receptor
+                        # byte 4 -> Tipo da mensagem
+                        # bytes 5, 6 e 7 -> Tamanho da mensagem, ocupando 3 caracteres (de 0 ate 999)
 
 IP = "127.0.0.1"    # Endereco que representa o localhost
 PORTA = 9999        # Porta escolhida para usar no trabalho
@@ -64,10 +64,10 @@ def recebe_mensagem(socket_cliente):
             return False
 
         cabecalho_mensagem = cabecalho_mensagem.decode("utf-8").strip() # tira espacos vazios do cabecalho
-        id_emissor = cabecalho_mensagem[0]
-        id_receptor = cabecalho_mensagem[1]
-        tipo_mensagem = cabecalho_mensagem[2]
-        tamanho_mensagem = int(cabecalho_mensagem[3:])
+        id_emissor = cabecalho_mensagem[0:2]
+        id_receptor = cabecalho_mensagem[2:4]
+        tipo_mensagem = Tipo_Mensagem(int(cabecalho_mensagem[4]))
+        tamanho_mensagem = int(cabecalho_mensagem[5:])
         return {"ID_E": id_emissor, "ID_R": id_receptor, "Tipo": tipo_mensagem, "Dados": socket_cliente.recv(tamanho_mensagem)}
 
     except:
@@ -91,6 +91,7 @@ sockets_conectados = [socket_servidor]
 
 # Dicionario com os componentes conectados ao servidor
 componentes = {}
+ultimo_ID = 0
 
 while True:
     # seleciona sockets modificados, sockets para escrita (nao usaremos), sockets com execoes
@@ -110,19 +111,23 @@ while True:
             sockets_conectados.append(socket_cliente)
             componentes[socket_cliente] = componente
             # exibe conexao estabelecida
-            print(f"Conexao estabelecida de {endereco_cliente[0]}:{endereco_cliente[1]} tipo:{componente['Dados'].decode('utf-8')}")
+            print(f"Conexao estabelecida de {endereco_cliente[0]}:{endereco_cliente[1]} tipo:{Tipo_Componente(int(componente['Dados'].decode('utf-8')))}")
+
+            ultimo_ID += 1
+            socket_cliente.send(f"0 {ultimo_ID:<2}00  ".encode('utf-8'))
+            componentes[socket_cliente]['ID_E'] = f"{ultimo_ID:<2}"
         # intera sobre os sockets que nao sao o servidor (novas mensagens dos clientes)
         else:
             mensagem = recebe_mensagem(socket_modificado)
             if mensagem is False: # mensagem vazia ou com erro
-                print(f"Conexao encerrada de {componentes[socket_modificado]['Dados'].decode('utf-8')}:{componentes[socket_modificado]['ID_E']}")
+                print(f"Conexao encerrada de {Tipo_Componente(int(componentes[socket_modificado]['Dados'].decode('utf-8')))}:{componentes[socket_modificado]['ID_E'].strip()}")
                 sockets_conectados.remove(socket_modificado)
                 del componentes[socket_modificado]
                 continue
             
             # exibe nova mensagem
             componente = componentes[socket_modificado]
-            print(f"Mensagem recebida de {componentes[socket_modificado]['Dados'].decode('utf-8')} ({componentes[socket_modificado]['ID_E']}): {mensagem['Tipo']}\ndados recebidos: {int(mensagem['Dados'].decode('utf-8'))} ")
+            print(f"Mensagem recebida de {Tipo_Componente(int(componentes[socket_modificado]['Dados'].decode('utf-8')))} ({componentes[socket_modificado]['ID_E'].strip()}): {mensagem['Tipo']}\ndados recebidos: {mensagem['Dados'].decode('utf-8')} ")
             #
             #####
             #     TRATAMENTO DE MENSAGENS VEM AQUI

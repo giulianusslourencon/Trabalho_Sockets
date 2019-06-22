@@ -38,11 +38,33 @@ class Tipo_Componente(Enum):
     COMP_GERENCIADOR = 8          # id gerenciador
     COMP_AMBIENTE = 9             # id ambiente
 
-TAMANHO_CABECALHO = 6   # O cabecalho da mensagem sera do tipo:
-                        # byte 0 -> ID do emissor
-                        # byte 1 -> ID do receptor
-                        # byte 2 -> Tipo da mensagem
-                        # bytes 3, 4 e 5 -> Tamanho da mensagem, ocupando 3 caracteres (de 0 ate 999)
+
+def recebe_mensagem(socket_servidor):
+    """ Funcao que verifica se um socket enviou alguma mensagem e, caso positivo,
+        retorna um dicionario com os dados da mensagem
+    """
+    try:
+        cabecalho_mensagem = socket_servidor.recv(TAMANHO_CABECALHO)
+        if not len(cabecalho_mensagem): # cabecalho vazio
+            return False
+
+        cabecalho_mensagem = cabecalho_mensagem.decode("utf-8").strip() # tira espacos vazios do cabecalho
+        id_emissor = cabecalho_mensagem[0:2]
+        id_receptor = cabecalho_mensagem[2:4]
+        tipo_mensagem = Tipo_Mensagem(int(cabecalho_mensagem[4]))
+        tamanho_mensagem = int(cabecalho_mensagem[5:])
+        return {"ID_E": id_emissor, "ID_R": id_receptor, "Tipo": tipo_mensagem, "Dados": socket_servidor.recv(tamanho_mensagem)}
+
+    except:
+        return False
+
+
+
+TAMANHO_CABECALHO = 8   # O cabecalho da mensagem sera do tipo:
+                        # bytes 0 e 1 -> ID do emissor
+                        # byte 2 e 3 -> ID do receptor
+                        # byte 4 -> Tipo da mensagem
+                        # bytes 5, 6 e 7 -> Tamanho da mensagem, ocupando 3 caracteres (de 0 ate 999)
                         
 IP = "127.0.0.1"    # Endereco que representa o localhost
 PORTA_G = 9999        # Porta escolhida para o gerenciador
@@ -55,19 +77,26 @@ client_socket.connect((IP, PORTA_G)) # Conecta ao servidor do gerenciador
 client_socket.setblocking(False)
 
 # Mensagem de conexao para o gerenciador
-nome = "Sensor de Temperatura".encode("utf-8")  # NOME DO SENSOR
-header = "08022 ".encode('utf-8') # 0 (mais significante) -> temperatura
-                                  # 8 -> gerenciador
-                                  # 0 -> mensagem de conexao de sensor
-                                  # '22 ' (menos significante) -> tamanho da mensagem
-client_socket.send(header + nome)
+nome = Tipo_Componente.COMP_SENSOR_TEMPERATURA  # NOME DO SENSOR
+header = "0 0 0".encode('utf-8')  # 0 (mais significante) -> "gerenciador", neste momento o componente requisita seu ID
+                                # 0 -> gerenciador
+                                # 0 -> mensagem de conexao de sensor
+client_socket.send(header + f"{len(str(nome.value)):<{TAMANHO_CABECALHO-5}}".encode('utf-8') + str(nome.value).encode('utf-8'))
+
+ID = 0
+while True:
+    mensagem = recebe_mensagem(client_socket)
+    if mensagem:
+        ID = mensagem['ID_R']
+        print(f"Mensagem recebida do servidor, meu ID é {ID}")
+        break
 
 while True:
     mensagem = input("Temperatura lida (digite): ") # temperatura
     
     if mensagem:
         mensagem = mensagem.encode("utf-8") # codifica para utf-8
-        mensagem_header = f"080{len(mensagem):<{TAMANHO_CABECALHO-3}}".encode("utf-8")
+        mensagem_header = f"{ID:<2}0 1{len(mensagem):<{TAMANHO_CABECALHO-5}}".encode("utf-8")
         client_socket.send(mensagem_header + mensagem)
 
     """
