@@ -4,7 +4,7 @@
     Alexandre Norcia Medeiros - 10295583
     Gabriel Alfonso Nascimento Salgueiro - 10284368
     Giuliano Lourençon - 10295590
-    Dedro "Pedro" Alexandre Parela Neto dos san- 21
+    P3dr0 Francisco Darela Neto - 10295624
 """
 # Include de bibliotecas
 import socket
@@ -15,24 +15,27 @@ from enum import Enum
 # Definicao dos tipos de mensagem
 class Tipo_Mensagem(Enum):
     """ Enum para definir o tipo da mensagem """
-    MEN_CONEXAO_SENSORES = 0
-    MEN_DADOS = 1
-    MEN_CONEXAO_ATUADORES = 2
-    MEN_ATIVACAO_ATUADORES = 3
-    MEN_DESATIVACAO_ATUADORES = 4
-    MEN_REQUISICAO_DADOS = 5
-    MEN_CONEXAO_CLIENTE = 6
-    MEN_DEFINICAO_CONFIG = 7
+    MEN_CONEXAO_SENSORES = 0      # sensor estabele conexao
+    MEN_DADOS = 1                 # sensor envia dados
+    MEN_CONEXAO_ATUADORES = 2     # atuador estabelece conexao
+    MEN_ATIVACAO_ATUADORES = 3    # gerenciador ativa atuador
+    MEN_DESATIVACAO_ATUADORES = 4 # gerenciador desativa atuador
+    MEN_REQUISICAO_DADOS = 5      # cliente requisita os dados
+    MEN_CONEXAO_CLIENTE = 6       # cliente estabelece conexao
+    MEN_DEFINICAO_CONFIG = 7      # cliente define configuracao
 
 class Tipo_Componente(Enum):
-    COMP_SENSOR_TEMPERATURA = 0
-    COMP_SENSOR_UMIDADE_SOLO = 1
-    COMP_SENSOR_NIVEL_CO2 = 2
-    COMP_ATUADOR_AQUECEDOR = 3
-    COMP_ATUADOR_RESFRIADOR = 4
-    COMP_ATUADOR_IRRIGACAO = 5
-    COMP_ATUADOR_INJETOR_CO2 = 6
-    COMP_CLIENTE = 7
+    """ Enum para definir o tipo de componente """
+    COMP_SENSOR_TEMPERATURA = 0   # id do sensor de temperatura
+    COMP_SENSOR_UMIDADE_SOLO = 1  # id sensor de umidade
+    COMP_SENSOR_NIVEL_CO2 = 2     # id co2
+    COMP_ATUADOR_AQUECEDOR = 3    # id aquecedor
+    COMP_ATUADOR_RESFRIADOR = 4   # id resfriador
+    COMP_ATUADOR_IRRIGACAO = 5    # id irrigacao
+    COMP_ATUADOR_INJETOR_CO2 = 6  # id injetor
+    COMP_CLIENTE = 7              # id cliente
+    COMP_GERENCIADOR = 8          # id gerenciador
+    COMP_AMBIENTE = 9             # id ambiente
 
 
 ########## CONSTANTES ##########
@@ -63,7 +66,7 @@ def recebe_mensagem(socket_cliente):
         cabecalho_mensagem = cabecalho_mensagem.decode("utf-8").strip() # tira espacos vazios do cabecalho
         id_emissor = cabecalho_mensagem[0]
         id_receptor = cabecalho_mensagem[1]
-        tipo_mensagem = Tipo_Mensagem(int(cabecalho_mensagem[2]))
+        tipo_mensagem = cabecalho_mensagem[2]
         tamanho_mensagem = int(cabecalho_mensagem[3:])
         return {"ID_E": id_emissor, "ID_R": id_receptor, "Tipo": tipo_mensagem, "Dados": socket_cliente.recv(tamanho_mensagem)}
 
@@ -107,24 +110,25 @@ while True:
             sockets_conectados.append(socket_cliente)
             componentes[socket_cliente] = componente
             # exibe conexao estabelecida
-            print(f"Conexao estabelecida de {endereco_cliente[0]}:{endereco_cliente[1]} tipo:{Tipo_Componente(int(componente['Dados'].decode('utf-8')))}")
+            print(f"Conexao estabelecida de {endereco_cliente[0]}:{endereco_cliente[1]} tipo:{componente['Dados'].decode('utf-8')}")
         # intera sobre os sockets que nao sao o servidor (novas mensagens dos clientes)
         else:
             mensagem = recebe_mensagem(socket_modificado)
             if mensagem is False: # mensagem vazia ou com erro
-                print(f"Conexao encerrada de {Tipo_Componente(int(componentes[socket_modificado]['Dados'].decode('utf-8')))}:{componentes[socket_modificado]['ID_E'].decode('utf-8')}")
+                print(f"Conexao encerrada de {componentes[socket_modificado]['Dados'].decode('utf-8')}:{componentes[socket_modificado]['ID_E']}")
                 sockets_conectados.remove(socket_modificado)
                 del componentes[socket_modificado]
                 continue
             
             # exibe nova mensagem
             componente = componentes[socket_modificado]
-            print(f"Mensagem recebida de {Tipo_Componente(int(componentes[socket_modificado]['Dados'].decode('utf-8')))} ({componentes[socket_modificado]['ID_E'].decode('utf-8')}): {Tipo_Mensagem(int(mensagem['Tipo'].decode('utf-8')))}")
+            print(f"Mensagem recebida de {componentes[socket_modificado]['Dados'].decode('utf-8')} ({componentes[socket_modificado]['ID_E']}): {mensagem['Tipo']}\ndados recebidos: {int(mensagem['Dados'].decode('utf-8'))} ")
+            #
             #####
             #     TRATAMENTO DE MENSAGENS VEM AQUI
             #####
 
-    # remove clientes que encerraram conexao    
+    # trata clientes com erro de execucao removendo sua coneccao   
     for socket_modificado in sockets_excecao:
         sockets_conectados.remove(socket_modificado)
         del componentes[socket_modificado]
