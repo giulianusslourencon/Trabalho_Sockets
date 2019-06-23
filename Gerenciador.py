@@ -12,30 +12,183 @@ import socket
 import select
 from _thread import start_new_thread
 
+########## Variaveis de controle ##########
 IP = "127.0.0.1"    # Endereco que representa o localhost
 PORTA = PORTA_G     # Porta escolhida para usar no trabalho
 
-########## FUNCOES ##########
+ultima_temperatura = 25
+ultimo_nivelCO2 = 0.3
+ultima_umidade = 0.3
 
+min_temperatura, max_temperatura = 20, 40
+min_nivelCO2, max_nivelCO2 = 0.2, 0.4
+min_umidade, max_umidade = 0.25, 0.5
+
+########## FUNCOES ##########
 def thread_sensor(socket_sensor):
-    """ Funcao que ficara em thread tratando as mensagens de um sensor """    
+    """ Funcao que ficara em thread tratando as mensagens de um sensor """
+    global ultima_temperatura
+    global ultimo_nivelCO2 
+    global ultima_umidade
+
+    componente_sensor = componentes[socket_sensor]
     while True:
         mensagem = recebe_mensagem(socket_sensor)
         if mensagem is False:
             break
-        componente_sensor = componentes[socket_sensor]
+        
+        # verifica tipo do sensor e guarda informacao relacionada
+        if Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_SENSOR_TEMPERATURA:
+            ultima_temperatura = float(mensagem['Dados'].decode('utf-8'))
+        elif Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_SENSOR_UMIDADE_SOLO:
+            ultima_umidade = float(mensagem['Dados'].decode('utf-8'))
+        elif Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_SENSOR_NIVEL_CO2:
+            ultimo_nivelCO2 = float(mensagem['Dados'].decode('utf-8'))
+    
         print(f"Mensagem recebida de {Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8')))} ({componente_sensor['ID_E'].strip()}): {mensagem['Dados'].decode('utf-8')}")
     
+    # caso de fim de conexao
     print(f"Conexao encerrada de {Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8')))} ({componente_sensor['ID_E'].strip()})")
     sockets_conectados.remove(socket_sensor)
     del componentes[socket_sensor]
     socket_sensor.close()
 
 
+def thread_atuador(socket_atuador):
+    """ Funcao que ficara em thread tratando as mensagens de um atuador """
+    global ultima_temperatura
+    global ultimo_nivelCO2 
+    global ultima_umidade
+
+    # variavel local da thread que indica se o atuador referente esta ativado
+    ativado = False
+
+    componente_atuador = componentes[socket_atuador]
+    while True:
+        histerese_temperatura = (max_temperatura-min_temperatura) / 2 # valor de folga entre desativacao dos atuadores de temperatura
+        # verifica tipo do atuador e guarda informacao relacionada
+        # Aquecedor
+        if Tipo_Componente(int(componente_atuador['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_ATUADOR_AQUECEDOR:
+            # ativa aquecedor caso a temperatura atual esteja abaixo da ideal
+            if float(ultima_temperatura) < min_temperatura and ativado == False:
+                print(f"Aquecedor ({componente_atuador['ID_E']}) ativado.")
+                tamanho = len(str(True))
+                mensagem = f"0 {componente_atuador['ID_E']}4{tamanho:<3}{str(True)}"
+                # verifica se existe o socket
+                try:
+                    socket_atuador.send(mensagem.encode('utf-8'))
+                    ativado = True
+                except:
+                    break
+
+            # desativa aquecedor caso a temperatura atinga o nivel ideal
+            elif float(ultima_temperatura) > (min_temperatura + histerese_temperatura) and ativado == True:
+                print(f"Aquecedor ({componente_atuador['ID_E']}) desativado.")
+                tamanho = len(str(False))
+                mensagem = f"0 {componente_atuador['ID_E']}4{tamanho:<3}{str(False)}"
+                # verifica se existe o socket
+                try:
+                    socket_atuador.send(mensagem.encode('utf-8'))
+                    ativado = False 
+                except:
+                    break
+        
+        # Resfriador        
+        elif Tipo_Componente(int(componente_atuador['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_ATUADOR_RESFRIADOR:
+            # ativa resfriador caso a temperatura atual esteja acima da ideal
+            if float(ultima_temperatura) > max_temperatura and ativado == False:
+                print(f"Resfriador ({componente_atuador['ID_E']}) ativado.")
+                tamanho = len(str(True))
+                mensagem = f"0 {componente_atuador['ID_E']}4{tamanho:<3}{str(True)}"
+                # verifica se existe o socket
+                try:
+                    socket_atuador.send(mensagem.encode('utf-8'))
+                    ativado = True 
+                except:
+                    break
+
+            # desativa resfriador caso a temperatura atinga o nivel ideal
+            elif float(ultima_temperatura) < (max_temperatura - histerese_temperatura) and ativado == True:
+                print(f"Resfriador ({componente_atuador['ID_E']}) desativado.")
+                tamanho = len(str(False))
+                mensagem = f"0 {componente_atuador['ID_E']}4{tamanho:<3}{str(False)}"
+                # verifica se existe o socket
+                try:
+                    socket_atuador.send(mensagem.encode('utf-8'))
+                    ativado = False 
+                except:
+                    break
+        
+        # Irrigador
+        elif Tipo_Componente(int(componente_atuador['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_ATUADOR_IRRIGACAO:
+            # ativa irrigador caso a umidade atual esteja abaixo da ideal
+            if ultima_umidade < min_umidade and ativado == False:
+                print(f"Irrigador ativado: {componente_atuador['ID_E']}")
+                tamanho = len(str(True))
+                mensagem = f"0 {componente_atuador['ID_E']}4{tamanho:<3}{str(True)}"
+                # verifica se existe o socket
+                try:
+                    socket_atuador.send(mensagem.encode('utf-8'))
+                    ativado = True 
+                except:
+                    break
+
+            # desativa irrigador caso a umidade atinga o nivel ideal
+            elif ultima_umidade > max_umidade and ativado == True:
+                print(f"Irrigador desativado: {componente_atuador['ID_E']}")
+                tamanho = len(str(False))
+                mensagem = f"0 {componente_atuador['ID_E']}4{tamanho:<3}{str(False)}"
+                # verifica se existe o socket
+                try:
+                    socket_atuador.send(mensagem.encode('utf-8'))
+                    ativado = False 
+                except:
+                    break 
+                
+        
+        # Injedor de CO2
+        elif Tipo_Componente(int(componente_atuador['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_ATUADOR_INJETOR_CO2:
+            # ativa injetor de CO2 caso a concentracao de CO2 atual esteja abaixo da ideal
+            if ultimo_nivelCO2 < min_nivelCO2 and ativado == False:
+                print(f"Injetor de CO2 ativado: {componente_atuador['ID_E']}")
+                tamanho = len(str(True))
+                mensagem = f"0 {componente_atuador['ID_E']}4{tamanho:<3}{str(True)}"
+                # verifica se existe o socket
+                try:
+                    socket_atuador.send(mensagem.encode('utf-8'))
+                    ativado = True 
+                except:
+                    break 
+
+            # desativa injetor de CO2 caso a concentracao de CO2 atinga o nivel ideal
+            elif ultimo_nivelCO2 > max_nivelCO2 and ativado == True:
+                print(f"Injetor de CO2 desativado: {componente_atuador['ID_E']}")
+                tamanho = len(str(False))
+                mensagem = f"0 {componente_atuador['ID_E']}4{tamanho:<3}{str(False)}"
+                # verifica se existe o socket
+                try:
+                    socket_atuador.send(mensagem.encode('utf-8'))
+                    ativado = False 
+                except:
+                    break
+    
+    
+    # caso de fim de conexao
+    print(f"Conexao encerrada de {Tipo_Componente(int(componente_atuador['Dados'].decode('utf-8')))} ({componente_atuador['ID_E'].strip()})")
+    sockets_conectados.remove(socket_atuador)
+    del componentes[socket_atuador]
+    socket_atuador.close()
+
+
+
 # Mapa para os diferentes tipos de componentes ligando as funcoes de thread correspondentes
 tipo_thread = { Tipo_Componente.COMP_SENSOR_TEMPERATURA:    thread_sensor,
                 Tipo_Componente.COMP_SENSOR_NIVEL_CO2:      thread_sensor,
                 Tipo_Componente.COMP_SENSOR_UMIDADE_SOLO:   thread_sensor,
+                Tipo_Componente.COMP_ATUADOR_AQUECEDOR:   thread_atuador,
+                Tipo_Componente.COMP_ATUADOR_RESFRIADOR:   thread_atuador,
+                Tipo_Componente.COMP_ATUADOR_IRRIGACAO:   thread_atuador,
+                Tipo_Componente.COMP_ATUADOR_INJETOR_CO2:   thread_atuador,
 }
 
 

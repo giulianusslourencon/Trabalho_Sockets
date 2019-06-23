@@ -24,40 +24,10 @@ TEMPERATURA = 25    # temperatura em grau celcius(ºC)
 UMIDADE = 0.3       # umidade em porcentagem
 CO2 = 0.3           # nivel de co2 em porcentagem
 
-########## FUNCOES ##########
-
-def thread_sensor(socket_sensor):
-    """ Funcao que ficara em thread tratando as mensagens de um sensor """    
-    while True:
-        # recebe mensagem solicitando leitura de sensor
-        mensagem = recebe_mensagem(socket_sensor)
-        if mensagem is False:
-            break
-        componente_sensor = componentes[socket_sensor]
-        print(f"Mensagem recebida de {Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8')))} ({componente_sensor['ID_E'].strip()}): {mensagem['Dados'].decode('utf-8')}")
-        # verifica tipo do sensor e manda informacao relacionada
-        if Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_SENSOR_TEMPERATURA:
-            tamanho = len(str(TEMPERATURA)) # tamanho do dado
-            socket_sensor.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(TEMPERATURA)}".encode('utf-8')) # manda temperatura
-        elif Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_SENSOR_UMIDADE_SOLO:
-            tamanho = len(str(UMIDADE)) # tamanho do dado
-            socket_sensor.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(UMIDADE)}".encode('utf-8')) # manda umidade
-        elif Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_SENSOR_NIVEL_CO2:
-            tamanho = len(str(CO2)) # tamanho do dado
-            socket_sensor.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(CO2)}".encode('utf-8')) # manda co2
-    
-    print(f"Conexao encerrada de {Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8')))} ({componente_sensor['ID_E'].strip()})")
-    sockets_conectados.remove(socket_sensor)
-    del componentes[socket_sensor]
-    socket_sensor.close()
-
-
-# Mapa para os diferentes tipos de componentes ligando as funcoes de thread correspondentes
-tipo_thread = { Tipo_Componente.COMP_SENSOR_TEMPERATURA:    thread_sensor,
-                Tipo_Componente.COMP_SENSOR_NIVEL_CO2:      thread_sensor,
-                Tipo_Componente.COMP_SENSOR_UMIDADE_SOLO:   thread_sensor,
-}
-
+aquecedores_ligados = 0
+resfriadores_ligados = 0
+irrigadores_ligados = 0
+injetoresCO2_ligados = 0
 
 ########## CODIGO PRINCIPAL ##########
 
@@ -82,9 +52,14 @@ while True:
     delta_time = current_time - last_time
     last_time = current_time
 
-    TEMPERATURA += delta_time * (random.random()-.5)
-    UMIDADE -= delta_time * UMIDADE ** 3 * (random.random()*0.25)
-    CO2 -= delta_time * CO2 ** 4 * (random.random()*0.1)
+    TEMPERATURA += delta_time * (random.random()*2-1)
+    UMIDADE -= delta_time * UMIDADE ** 3 * (random.random()*.25)
+    CO2 -= delta_time * CO2 ** 4 * (random.random()*.1)
+
+    TEMPERATURA += delta_time * aquecedores_ligados * 2
+    TEMPERATURA -= delta_time * resfriadores_ligados * 2
+    UMIDADE += delta_time * irrigadores_ligados * .05
+    CO2 += delta_time * injetoresCO2_ligados * .01
     
     # seleciona sockets modificados, sockets para escrita (nao usaremos), sockets com execoes
     try:
@@ -108,7 +83,58 @@ while True:
             componentes[socket_cliente] = componente
             # exibe conexao estabelecida e inicia uma nova thread para tratar do novo componente
             print(f"Conexao estabelecida de {endereco_cliente[0]}:{endereco_cliente[1]} tipo:{Tipo_Componente(int(componente['Dados'].decode('utf-8')))}")
-            start_new_thread(tipo_thread[Tipo_Componente(int(componente['Dados'].decode('utf-8')))], (socket_cliente,))
+            
+        else:
+            componente_modificado = componentes[socket_modificado]
+            tipo = Tipo_Componente(int(componente_modificado['Dados'].decode('utf-8')))
+            mensagem = recebe_mensagem(socket_modificado)
+            if mensagem is False:
+                break
+            print(f"Mensagem recebida de {tipo} ({componente_modificado['ID_E'].strip()}): {mensagem['Dados'].decode('utf-8')}")
+            # verifica tipo do sensor e manda informacao relacionada
+            if tipo == Tipo_Componente.COMP_SENSOR_TEMPERATURA:
+                tamanho = len(str(TEMPERATURA)) # tamanho do dado
+                socket_modificado.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(TEMPERATURA)}".encode('utf-8')) # manda temperatura
+            
+            elif tipo == Tipo_Componente.COMP_SENSOR_UMIDADE_SOLO:
+                tamanho = len(str(UMIDADE)) # tamanho do dado
+                socket_modificado.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(UMIDADE)}".encode('utf-8')) # manda umidade
+            
+            elif tipo == Tipo_Componente.COMP_SENSOR_NIVEL_CO2:
+                tamanho = len(str(CO2)) # tamanho do dado
+                socket_modificado.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(CO2)}".encode('utf-8')) # manda co2
+    
+            elif tipo == Tipo_Componente.COMP_ATUADOR_AQUECEDOR:
+                if mensagem['Dados'].decode('utf-8') == str(True):
+                    aquecedores_ligados += 1
+                    print(f"Aquecedor ligado: {componente_modificado['ID_E']} - {aquecedores_ligados}")
+                else:
+                    aquecedores_ligados -= 1
+                    print(f"Aquecedor desligado: {componente_modificado['ID_E']} - {aquecedores_ligados}")
+                
+            elif tipo == Tipo_Componente.COMP_ATUADOR_RESFRIADOR:
+                if mensagem['Dados'].decode('utf-8') == str(True):
+                    resfriadores_ligados += 1
+                    print(f"Resfriador ligado: {componente_modificado['ID_E']} - {resfriadores_ligados}")
+                else:
+                    resfriadores_ligados -= 1
+                    print(f"Resfriador desligado: {componente_modificado['ID_E']} - {resfriadores_ligados}")
+                
+            elif tipo == Tipo_Componente.COMP_ATUADOR_IRRIGACAO:
+                if mensagem['Dados'].decode('utf-8') == str(True):
+                    irrigadores_ligados += 1
+                    print(f"Irrigador ligado: {componente_modificado['ID_E']} - {irrigadores_ligados}")
+                else:
+                    irrigadores_ligados -= 1
+                    print(f"Irrigador desligado: {componente_modificado['ID_E']} - {irrigadores_ligados}")
+            
+            elif tipo == Tipo_Componente.COMP_ATUADOR_INJETOR_CO2:
+                if mensagem['Dados'].decode('utf-8') == str(True):
+                    injetoresCO2_ligados += 1
+                    print(f"Injetor ligado: {componente_modificado['ID_E']} - {injetoresCO2_ligados}")
+                else:
+                    injetoresCO2_ligados -= 1
+                    print(f"Injetor desligado: {componente_modificado['ID_E']} - {injetoresCO2_ligados}")
 
     # trata clientes com erro de execucao removendo sua coneccao   
     for socket_modificado in sockets_excecao:
