@@ -11,6 +11,8 @@
 from protocolo import *
 import socket
 import select
+import time
+import random
 from _thread import start_new_thread
 
 IP = "127.0.0.1"    # Endereco que representa o localhost
@@ -73,7 +75,17 @@ sockets_conectados = [socket_servidor]
 
 # Dicionario com os componentes conectados ao servidor
 componentes = {}
+last_time = time.time()
 while True:
+    
+    current_time = time.time()
+    delta_time = current_time - last_time
+    last_time = current_time
+
+    TEMPERATURA += delta_time * (random.random()-.5)
+    UMIDADE -= delta_time * UMIDADE ** 3 * (random.random()*0.25)
+    CO2 -= delta_time * CO2 ** 4 * (random.random()*0.1)
+    
     # seleciona sockets modificados, sockets para escrita (nao usaremos), sockets com execoes
     try:
         sockets_modificados, _, sockets_excecao = select.select(sockets_conectados, [], sockets_conectados)
@@ -94,7 +106,7 @@ while True:
             # adiciona novo cliente
             sockets_conectados.append(socket_cliente)
             componentes[socket_cliente] = componente
-            # exibe conexao estabelecida
+            # exibe conexao estabelecida e inicia uma nova thread para tratar do novo componente
             print(f"Conexao estabelecida de {endereco_cliente[0]}:{endereco_cliente[1]} tipo:{Tipo_Componente(int(componente['Dados'].decode('utf-8')))}")
             start_new_thread(tipo_thread[Tipo_Componente(int(componente['Dados'].decode('utf-8')))], (socket_cliente,))
 
