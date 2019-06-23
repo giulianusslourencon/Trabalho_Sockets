@@ -60,7 +60,11 @@ ultimo_ID = 0
 
 while True:
     # seleciona sockets modificados, sockets para escrita (nao usaremos), sockets com execoes
-    sockets_modificados, _, sockets_excecao = select.select(sockets_conectados, [], sockets_conectados)
+    try:
+        sockets_modificados, _, sockets_excecao = select.select(sockets_conectados, [], sockets_conectados)
+    except OSError as e:
+        print("Erro: ", str(e))
+        continue
 
     for socket_modificado in sockets_modificados:
         # socket modificado eh o servidor (alguem quer se conectar)

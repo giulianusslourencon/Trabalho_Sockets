@@ -1,5 +1,5 @@
 """ Trabalho de redes 2019 - ICMC
-    Codigo que faz o sensor de temperatura
+    Codigo que faz o sensor de CO2 do ambiente
 
     Alexandre Norcia Medeiros - 10295583
     Gabriel Alfonso Nascimento Salgueiro - 10284368
@@ -26,7 +26,7 @@ client_socket.connect((IP, PORTA_G)) # Conecta ao servidor do gerenciador
 client_socket.setblocking(False)
 
 # Mensagem de conexao para o gerenciador
-tipo = Tipo_Componente.COMP_SENSOR_TEMPERATURA  # TIPO DO SENSOR
+tipo = Tipo_Componente.COMP_SENSOR_NIVEL_CO2  # TIPO DO SENSOR
 header = "0 0 0".encode('utf-8') # '0 ' (mais significante) -> neste momento o componente requisita seu ID
                                  # '0 ' -> gerenciador
                                  # 0 -> mensagem de conexao de sensor
@@ -57,9 +57,9 @@ while True:
     time.sleep(TEMPO_ENTRE_LEITURAS) # tempo de espera entre leituras
     # requisita dados para o ambiente
     ambiente_socket.send(header + f"{len(str(tipo.value)):<{TAMANHO_CABECALHO-5}}".encode('utf-8') + str(tipo.value).encode('utf-8'))
-    # recebe temperatura
-    mensagem = recebe_mensagem(ambiente_socket) # temperatura
-    # envia temperatura ao gerenciador
+    # recebe nivel de CO2
+    mensagem = recebe_mensagem(ambiente_socket) # nivel de CO2
+    # envia nivel de CO2 ao gerenciador
     if mensagem:
         mensagem_header = f"{ID:<2}0 1{len(mensagem['Dados']):<{TAMANHO_CABECALHO-5}}".encode("utf-8")
         client_socket.send(mensagem_header + mensagem['Dados'])

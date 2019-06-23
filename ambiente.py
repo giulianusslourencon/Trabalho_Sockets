@@ -36,13 +36,13 @@ def thread_sensor(socket_sensor):
         # verifica tipo do sensor e manda informacao relacionada
         if Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_SENSOR_TEMPERATURA:
             tamanho = len(str(TEMPERATURA)) # tamanho do dado
-            socket_cliente.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(TEMPERATURA)}".encode('utf-8')) # manda temperatura
+            socket_sensor.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(TEMPERATURA)}".encode('utf-8')) # manda temperatura
         elif Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_SENSOR_UMIDADE_SOLO:
             tamanho = len(str(UMIDADE)) # tamanho do dado
-            socket_cliente.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(UMIDADE)}".encode('utf-8')) # manda umidade
+            socket_sensor.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(UMIDADE)}".encode('utf-8')) # manda umidade
         elif Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8'))) == Tipo_Componente.COMP_SENSOR_NIVEL_CO2:
             tamanho = len(str(CO2)) # tamanho do dado
-            socket_cliente.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(CO2)}".encode('utf-8')) # manda co2
+            socket_sensor.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(CO2)}".encode('utf-8')) # manda co2
     
     print(f"Conexao encerrada de {Tipo_Componente(int(componente_sensor['Dados'].decode('utf-8')))} ({componente_sensor['ID_E'].strip()})")
     sockets_conectados.remove(socket_sensor)
@@ -75,7 +75,11 @@ sockets_conectados = [socket_servidor]
 componentes = {}
 while True:
     # seleciona sockets modificados, sockets para escrita (nao usaremos), sockets com execoes
-    sockets_modificados, _, sockets_excecao = select.select(sockets_conectados, [], sockets_conectados)
+    try:
+        sockets_modificados, _, sockets_excecao = select.select(sockets_conectados, [], sockets_conectados)
+    except OSError as e:
+        print("Erro: ", str(e))
+        continue
 
     for socket_modificado in sockets_modificados:
         # socket modificado eh o servidor (alguem quer se conectar)
@@ -92,10 +96,8 @@ while True:
             componentes[socket_cliente] = componente
             # exibe conexao estabelecida
             print(f"Conexao estabelecida de {endereco_cliente[0]}:{endereco_cliente[1]} tipo:{Tipo_Componente(int(componente['Dados'].decode('utf-8')))}")
-
-            # cria uma nova thread para tratar a comunicacao com o componente de acordo com o tipo dele
             start_new_thread(tipo_thread[Tipo_Componente(int(componente['Dados'].decode('utf-8')))], (socket_cliente,))
-        
+
     # trata clientes com erro de execucao removendo sua coneccao   
     for socket_modificado in sockets_excecao:
         print(f"ERRO!!\nConexao encerrada de {Tipo_Componente(int(componentes[socket_modificado]['Dados'].decode('utf-8')))}:{componentes[socket_modificado]['ID_E'].strip()}")
