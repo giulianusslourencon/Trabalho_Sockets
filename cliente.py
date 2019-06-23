@@ -15,10 +15,10 @@ client_socket.connect((IP, PORTA_G)) # Conecta ao servidor do gerenciador
 client_socket.setblocking(False)
 
 # Mensagem de conexao para o gerenciador
-tipo = Tipo_Componente.COMP_CLIENTE  # TIPO DO SENSOR
-header = "0 0 0".encode('utf-8') # '0 ' (mais significante) -> neste momento o componente requisita seu ID
+tipo = Tipo_Componente.COMP_CLIENTE  # TIPO 'cliente'
+header = "0 0 6".encode('utf-8') # '0 ' (mais significante) -> neste momento o componente requisita seu ID
                                  # '0 ' -> gerenciador
-                                 # 0 -> mensagem de conexao de sensor
+                                 # 6 -> mensagem de conexao de cliente
 # manda mensagem para o gerenciador
 client_socket.send(header + f"{len(str(tipo.value)):<{TAMANHO_CABECALHO-5}}".encode('utf-8') + str(tipo.value).encode('utf-8'))
 
@@ -33,15 +33,24 @@ while True:
         break
 
 while True:
-    message = input("Tipo do pedido:\n 0 - Requisição de dados\n")
+    message = input("Tipo do pedido:\n 0 - Requisição de dados\n 1 - Configuração de parâmetros\n")
 
     if message:
         if int(message) == 0:
-            message = input("\n  0 - Temperatura\n  1 - Nível de CO2\n  2 - Umidade do solo\n")
+            message = input("  0 - Temperatura\n  1 - Nível de CO2\n  2 - Umidade do solo\n")
             if message:
                 message = f"{ID:<2}0 5{len(message):<3}{message}".encode("utf-8")
                 client_socket.send(message)
-                print("Enviou")
+
+        elif int(message) == 1:
+            dado = input("  0 - Temperatura\n  1 - Nível de CO2\n  2 - Umidade do solo\n")
+            if dado:
+                min_v = input("Digite o valor mínimo: ")
+                max_v = input("Digite o valor máximo: ")
+                if min_v and max_v:
+                    message = f"{dado} {min_v} {max_v}"
+                    message = f"{ID:<2}0 7{len(message):<3}{message}".encode('utf-8')
+                    client_socket.send(message)
 
     try:
         while True:

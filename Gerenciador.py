@@ -27,6 +27,7 @@ min_umidade, max_umidade = 0.25, 0.5
 ########## FUNCOES ##########
 def thread_sensor(socket_sensor):
     """ Funcao que ficara em thread tratando as mensagens de um sensor """
+    # define escopo de variaveis globais
     global ultima_temperatura
     global ultimo_nivelCO2 
     global ultima_umidade
@@ -56,6 +57,7 @@ def thread_sensor(socket_sensor):
 
 def thread_atuador(socket_atuador):
     """ Funcao que ficara em thread tratando as mensagens de um atuador """
+    # define escopo de variaveis globais
     global ultima_temperatura
     global ultimo_nivelCO2 
     global ultima_umidade
@@ -179,14 +181,22 @@ def thread_atuador(socket_atuador):
     del componentes[socket_atuador]
     socket_atuador.close()
 
-
 def thread_cliente(socket_cliente):
+    """ funcao que define thread que lida com o cliente """
+    # define escopo de variaveis globais
+    global min_temperatura, max_temperatura
+    global min_nivelCO2, max_nivelCO2
+    global min_umidade, max_umidade
+
+    # loop principal de execucao da thread que lida com o cliente
     while True:
+        # tenta receber mensagem do cliente
         mensagem = recebe_mensagem(socket_cliente)
-        if mensagem is False:
+        if mensagem is False: # caso coneccao seja encerrada
             break        
         print(f"Mensagem recebida do cliente ({componentes[socket_cliente]['ID_E'].strip()}): {mensagem['Dados'].decode('utf-8')}")
     
+        # caso onde a mensagem eh do tipo de requisicao
         if mensagem['Tipo'] == Tipo_Mensagem.MEN_REQUISICAO_DADOS:
             dado = int(mensagem['Dados'].decode('utf-8'))
             valor = 0
@@ -200,6 +210,23 @@ def thread_cliente(socket_cliente):
             mensagem = f"0 {componentes[socket_cliente]['ID_E']}1{len(str(valor)):<3}{str(valor)}".encode('utf-8')
             socket_cliente.send(mensagem)
             print(f"Mensagem com o valor {str(valor)} enviada para o cliente")
+
+        # caso onde a mensagem eh do tipo de definicao de configuracoes
+        elif mensagem['Tipo'] == Tipo_Mensagem.MEN_DEFINICAO_CONFIG:
+            dado, min_v, max_v = mensagem['Dados'].decode('utf-8').split(" ")
+            print(f"Dado = {dado}  Min = {min_v}  Max = {max_v}")
+            dado = int(dado)
+            if dado == 0: # define nova faixa de temperatura
+                min_temperatura, max_temperatura = float(min_v), float(max_v)
+            elif dado == 1: # define nova faixa de umidade do solo
+                min_umidade, max_umidade = float(min_v), float(max_v)
+            elif dado == 2: # define nova faixa de concentracao de cO2
+                min_nivelCO2, max_nivelCO2 = float(min_v), float(max_v)
+            
+            mensagem = "Parametros alterados com sucesso"
+            mensagem = f"0 {componentes[socket_cliente]['ID_E']}1{len(mensagem):<3}{mensagem}".encode('utf-8')
+            socket_cliente.send(mensagem)
+            print(mensagem)
 
     # caso de fim de conexao
     print(f"Conexao encerrada com o cliente ({componentes[socket_cliente]['ID_E'].strip()})")
@@ -221,7 +248,6 @@ tipo_thread = { Tipo_Componente.COMP_SENSOR_TEMPERATURA:    thread_sensor,
 
 
 ########## CODIGO PRINCIPAL ##########
-
 
 # Cria o socket do servidor utilizando os protocolos TCP/IP
 # AF_INET -> IPv4, SOCK_STREAM -> TCP

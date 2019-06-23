@@ -52,12 +52,12 @@ while True:
     delta_time = current_time - last_time
     last_time = current_time
 
-    TEMPERATURA += delta_time * (random.random()*2-1)
+    TEMPERATURA += delta_time * (random.random()*2-1)  #função aleatoria para gerar a mudanca de temperatura, umidade e CO2
     UMIDADE -= delta_time * UMIDADE ** 3 * (random.random()*.25)
     CO2 -= delta_time * CO2 ** 4 * (random.random()*.1)
 
-    TEMPERATURA += delta_time * aquecedores_ligados * 2
-    TEMPERATURA -= delta_time * resfriadores_ligados * 2
+    TEMPERATURA += delta_time * aquecedores_ligados * 2 #função aleatoria para gerar a mudanca de temperatura, umidade e CO2
+    TEMPERATURA -= delta_time * resfriadores_ligados * 2 
     UMIDADE += delta_time * irrigadores_ligados * .05
     CO2 += delta_time * injetoresCO2_ligados * .01
     
@@ -83,14 +83,15 @@ while True:
             componentes[socket_cliente] = componente
             # exibe conexao estabelecida e inicia uma nova thread para tratar do novo componente
             print(f"Conexao estabelecida de {endereco_cliente[0]}:{endereco_cliente[1]} tipo:{Tipo_Componente(int(componente['Dados'].decode('utf-8')))}")
-            
+        # socket modificado nao e o servidor, logo e um sensor ou atuador   
         else:
-            componente_modificado = componentes[socket_modificado]
-            tipo = Tipo_Componente(int(componente_modificado['Dados'].decode('utf-8')))
+            componente_modificado = componentes[socket_modificado] # seleciona componente
+            tipo = Tipo_Componente(int(componente_modificado['Dados'].decode('utf-8'))) # verifica tipo
             mensagem = recebe_mensagem(socket_modificado)
             if mensagem is False:
                 break
             print(f"Mensagem recebida de {tipo} ({componente_modificado['ID_E'].strip()}): {mensagem['Dados'].decode('utf-8')}")
+            
             # verifica tipo do sensor e manda informacao relacionada
             if tipo == Tipo_Componente.COMP_SENSOR_TEMPERATURA:
                 tamanho = len(str(TEMPERATURA)) # tamanho do dado
@@ -103,7 +104,8 @@ while True:
             elif tipo == Tipo_Componente.COMP_SENSOR_NIVEL_CO2:
                 tamanho = len(str(CO2)) # tamanho do dado
                 socket_modificado.send(f"99{mensagem['ID_E']}0{tamanho:<3}{str(CO2)}".encode('utf-8')) # manda co2
-    
+            
+            # casos onde o cliente modificado e um atuador
             elif tipo == Tipo_Componente.COMP_ATUADOR_AQUECEDOR:
                 if mensagem['Dados'].decode('utf-8') == str(True):
                     aquecedores_ligados += 1

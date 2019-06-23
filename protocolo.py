@@ -12,7 +12,7 @@ from enum import Enum
 
 # Definicao das portas dos servidores
 PORTA_G = 9999        # Porta escolhida para o gerenciador
-PORTA_A = 9998        # Porta escolhida para o ambiente
+PORTA_A = 9997        # Porta escolhida para o ambiente
 # Definicao do cabecalho
 TAMANHO_CABECALHO = 8   # O cabecalho da mensagem sera do tipo:
                         # bytes 0 e 1 -> ID do emissor (0 a 99)
