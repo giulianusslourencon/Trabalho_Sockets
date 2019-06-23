@@ -180,6 +180,33 @@ def thread_atuador(socket_atuador):
     socket_atuador.close()
 
 
+def thread_cliente(socket_cliente):
+    while True:
+        mensagem = recebe_mensagem(socket_cliente)
+        if mensagem is False:
+            break        
+        print(f"Mensagem recebida do cliente ({componentes[socket_cliente]['ID_E'].strip()}): {mensagem['Dados'].decode('utf-8')}")
+    
+        if mensagem['Tipo'] == Tipo_Mensagem.MEN_REQUISICAO_DADOS:
+            dado = int(mensagem['Dados'].decode('utf-8'))
+            valor = 0
+            if dado == 0:
+                valor = ultima_temperatura
+            elif dado == 1:
+                valor = ultima_umidade
+            elif dado == 2:
+                valor = ultimo_nivelCO2
+
+            mensagem = f"0 {componentes[socket_cliente]['ID_E']}1{len(str(valor)):<3}{str(valor)}".encode('utf-8')
+            socket_cliente.send(mensagem)
+            print(f"Mensagem com o valor {str(valor)} enviada para o cliente")
+
+    # caso de fim de conexao
+    print(f"Conexao encerrada com o cliente ({componentes[socket_cliente]['ID_E'].strip()})")
+    sockets_conectados.remove(socket_cliente)
+    del componentes[socket_cliente]
+    socket_cliente.close()
+
 
 # Mapa para os diferentes tipos de componentes ligando as funcoes de thread correspondentes
 tipo_thread = { Tipo_Componente.COMP_SENSOR_TEMPERATURA:    thread_sensor,
@@ -189,6 +216,7 @@ tipo_thread = { Tipo_Componente.COMP_SENSOR_TEMPERATURA:    thread_sensor,
                 Tipo_Componente.COMP_ATUADOR_RESFRIADOR:   thread_atuador,
                 Tipo_Componente.COMP_ATUADOR_IRRIGACAO:   thread_atuador,
                 Tipo_Componente.COMP_ATUADOR_INJETOR_CO2:   thread_atuador,
+                Tipo_Componente.COMP_CLIENTE:   thread_cliente
 }
 
 
